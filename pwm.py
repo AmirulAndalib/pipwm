@@ -148,28 +148,29 @@ class PWMFanControl:
         GPIO.cleanup()
         logging.info("Fan turned off during system shutdown")
 
-    def update_fan_status(self):
-        current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
-        current_temp_str = current_temp_str.replace('°', '')  # Remove '°' symbol
-        current_temp = self.parse_temperature(current_temp_str)
+def update_fan_status(self):
+    current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
+    current_temp_str = current_temp_str.replace('°', '')  # Remove '°' symbol
+    current_temp = self.parse_temperature(current_temp_str)
 
-        threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
-        threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
+    threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
+    threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
 
-        if self.pwm_scale.get() > 0:
-            # If the fan speed slider is manually set, use the manual setting
-            self.fan_pwm.ChangeDutyCycle(self.pwm_scale.get())
-        elif current_temp >= threshold_temp:
-            # If the temperature crosses the threshold, set the fan to the threshold speed
-            self.fan_pwm.ChangeDutyCycle(threshold_speed)
-        else:
-            # If the temperature is below the threshold, turn off the fan
-            self.fan_pwm.ChangeDutyCycle(0)
+    if self.pwm_scale.get() > 0:
+        # If the fan speed slider is manually set, use the manual setting
+        self.fan_pwm.ChangeDutyCycle(self.pwm_scale.get())
+    elif current_temp >= threshold_temp:
+        # If the temperature crosses the threshold, set the fan to the threshold speed
+        self.fan_pwm.ChangeDutyCycle(threshold_speed)
+    else:
+        # If the temperature is below the threshold, turn off the fan
+        self.fan_pwm.ChangeDutyCycle(0)
 
-        if self.fan_pwm.get_duty_cycle() > 0:
-            self.fan_status.set("ON")
-        else:
-            self.fan_status.set("OFF")
+    # Checking if the duty cycle is greater than 0 to determine fan status
+    if self.fan_pwm.ChangeDutyCycle() > 0:
+        self.fan_status.set("ON")
+    else:
+        self.fan_status.set("OFF")
 
 def main():
     root = tk.Tk()
