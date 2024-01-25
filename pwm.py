@@ -73,40 +73,8 @@ class PWMFanControl:
         self.auto_start_check = tk.Checkbutton(self.master, text="Auto Start on Boot", variable=self.auto_start_var)
         self.auto_start_check.grid(row=7, column=0, columnspan=2, padx=10, pady=10)
 
-        # Auto mode settings
-        self.auto_settings_frame = ttk.LabelFrame(self.master, text="Auto Mode Settings")
-        self.auto_settings_frame.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky='w')
-
-        self.auto_temp1_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoTemp1')))
-        self.auto_speed1_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoSpeed1')))
-        self.auto_temp2_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoTemp2')))
-        self.auto_speed2_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoSpeed2')))
-
-        self.auto_temp1_label = tk.Label(self.auto_settings_frame, text="Auto Temp 1:")
-        self.auto_temp1_label.grid(row=0, column=0, padx=10, pady=5)
-        self.auto_temp1_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_temp1_var)
-        self.auto_temp1_entry.grid(row=0, column=1, padx=10, pady=5)
-
-        self.auto_speed1_label = tk.Label(self.auto_settings_frame, text="Auto Speed 1:")
-        self.auto_speed1_label.grid(row=0, column=2, padx=10, pady=5)
-        self.auto_speed1_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_speed1_var)
-        self.auto_speed1_entry.grid(row=0, column=3, padx=10, pady=5)
-
-        self.auto_temp2_label = tk.Label(self.auto_settings_frame, text="Auto Temp 2:")
-        self.auto_temp2_label.grid(row=1, column=0, padx=10, pady=5)
-        self.auto_temp2_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_temp2_var)
-        self.auto_temp2_entry.grid(row=1, column=1, padx=10, pady=5)
-
-        self.auto_speed2_label = tk.Label(self.auto_settings_frame, text="Auto Speed 2:")
-        self.auto_speed2_label.grid(row=1, column=2, padx=10, pady=5)
-        self.auto_speed2_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_speed2_var)
-        self.auto_speed2_entry.grid(row=1, column=3, padx=10, pady=5)
-
-        self.apply_auto_settings_button = tk.Button(self.auto_settings_frame, text="Apply Auto Settings", command=self.apply_auto_settings)
-        self.apply_auto_settings_button.grid(row=2, column=0, columnspan=4, pady=5)
-
         self.quit_button = tk.Button(self.master, text="Quit", command=self.cleanup)
-        self.quit_button.grid(row=9, column=0, columnspan=2, pady=10)
+        self.quit_button.grid(row=8, column=0, columnspan=2, pady=10)
 
         self.start_time = time.time()
 
@@ -120,7 +88,13 @@ class PWMFanControl:
         logging.info(f"Fan speed set to {duty_cycle}%")
 
     def update_gui(self):
-        temp = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
+        temp_str = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
+        try:
+            temp = float(temp_str)
+        except ValueError:
+            logging.warning(f"Failed to convert temperature: {temp_str}")
+            temp = 0.0  # Set a default value in case of conversion failure
+
         freq = subprocess.getoutput("vcgencmd measure_clock arm | awk -F '=' '{print $2}'")
 
         elapsed_time = time.time() - self.start_time
@@ -150,27 +124,13 @@ class PWMFanControl:
     def load_settings(self):
         try:
             self.config.read('pwm.config')
-            # Set default values for auto mode settings if not present in the configuration file
-            if not self.config.has_option('Settings', 'AutoTemp1'):
-                self.config.set('Settings', 'AutoTemp1', '0')
-            if not self.config.has_option('Settings', 'AutoSpeed1'):
-                self.config.set('Settings', 'AutoSpeed1', '0')
-            if not self.config.has_option('Settings', 'AutoTemp2'):
-                self.config.set('Settings', 'AutoTemp2', '0')
-            if not self.config.has_option('Settings', 'AutoSpeed2'):
-                self.config.set('Settings', 'AutoSpeed2', '0')
         except FileNotFoundError:
             # If pwm.config doesn't exist, create it with default settings
-            self.config['Settings'] = {'FanSpeed': '0', 'FanPin': '14', 'ThresholdTemp': '40', 'ThresholdSpeed': '50',
-                                       'AutoTemp1': '0', 'AutoSpeed1': '0', 'AutoTemp2': '0', 'AutoSpeed2': '0'}
+            self.config['Settings'] = {'FanSpeed': '0', 'FanPin': '14', 'ThresholdTemp': '40', 'ThresholdSpeed': '50'}
             self.save_settings()
 
     def save_settings(self):
         self.config.set('Settings', 'FanPin', str(self.fan_pin_var.get()))
-        self.config.set('Settings', 'AutoTemp1', str(self.auto_temp1_var.get()))
-        self.config.set('Settings', 'AutoSpeed1', str(self.auto_speed1_var.get()))
-        self.config.set('Settings', 'AutoTemp2', str(self.auto_temp2_var.get()))
-        self.config.set('Settings', 'AutoSpeed2', str(self.auto_speed2_var.get()))
         with open('pwm.config', 'w') as configfile:
             self.config.write(configfile)
 
@@ -211,23 +171,6 @@ class PWMFanControl:
             self.fan_status.set("ON")
         else:
             self.fan_status.set("OFF")
-
-    def apply_auto_settings(self):
-        try:
-            auto_temp1 = float(self.auto_temp1_var.get())
-            auto_speed1 = float(self.auto_speed1_var.get())
-            auto_temp2 = float(self.auto_temp2_var.get())
-            auto_speed2 = float(self.auto_speed2_var.get())
-        except ValueError:
-            logging.warning("Invalid input for auto settings. Please enter valid numeric values.")
-            return
-
-        self.config.set('Settings', 'AutoTemp1', str(auto_temp1))
-        self.config.set('Settings', 'AutoSpeed1', str(auto_speed1))
-        self.config.set('Settings', 'AutoTemp2', str(auto_temp2))
-        self.config.set('Settings', 'AutoSpeed2', str(auto_speed2))
-        self.save_settings()
-        logging.info("Auto settings applied successfully.")
 
 def main():
     root = tk.Tk()
