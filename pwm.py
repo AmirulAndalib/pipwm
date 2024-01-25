@@ -102,6 +102,9 @@ class PWMFanControl:
         self.auto_speed2_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_speed2_var)
         self.auto_speed2_entry.grid(row=1, column=3, padx=10, pady=5)
 
+        self.apply_auto_settings_button = tk.Button(self.auto_settings_frame, text="Apply Auto Settings", command=self.apply_auto_settings)
+        self.apply_auto_settings_button.grid(row=2, column=0, columnspan=4, pady=5)
+
         self.quit_button = tk.Button(self.master, text="Quit", command=self.cleanup)
         self.quit_button.grid(row=9, column=0, columnspan=2, pady=10)
 
@@ -208,6 +211,23 @@ class PWMFanControl:
             self.fan_status.set("ON")
         else:
             self.fan_status.set("OFF")
+
+    def apply_auto_settings(self):
+        try:
+            auto_temp1 = float(self.auto_temp1_var.get())
+            auto_speed1 = float(self.auto_speed1_var.get())
+            auto_temp2 = float(self.auto_temp2_var.get())
+            auto_speed2 = float(self.auto_speed2_var.get())
+        except ValueError:
+            logging.warning("Invalid input for auto settings. Please enter valid numeric values.")
+            return
+
+        self.config.set('Settings', 'AutoTemp1', str(auto_temp1))
+        self.config.set('Settings', 'AutoSpeed1', str(auto_speed1))
+        self.config.set('Settings', 'AutoTemp2', str(auto_temp2))
+        self.config.set('Settings', 'AutoSpeed2', str(auto_speed2))
+        self.save_settings()
+        logging.info("Auto settings applied successfully.")
 
 def main():
     root = tk.Tk()
