@@ -110,7 +110,7 @@ class PWMFanControl:
         try:
             return float(temp_str)
         except ValueError:
-            logging.warning(f"Failed to convert temperature: {temp_str}")
+            #logging.warning(f"Failed to convert temperature: {temp_str}")
             return 0.0
 
     def toggle_theme(self, event=None):
