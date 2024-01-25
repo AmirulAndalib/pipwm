@@ -110,7 +110,13 @@ class PWMFanControl:
         logging.info(f"Fan speed set to {duty_cycle}%")
 
     def update_gui(self):
-        temp = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
+        temp_str = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
+        try:
+            temp = float(temp_str)
+        except ValueError:
+            logging.warning(f"Failed to convert temperature: {temp_str}")
+            temp = 0.0
+
         freq = subprocess.getoutput("vcgencmd measure_clock arm | awk -F '=' '{print $2}'")
 
         elapsed_time = time.time() - self.start_time
@@ -169,7 +175,7 @@ class PWMFanControl:
 
     def update_fan_status(self):
         current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
-        current_temp_str = current_temp_str.replace('°', '')  # Remove '°' symbol
+        current_temp_str = current_temp_str.replace('°C', '')  # Remove '°C' symbol
         try:
             current_temp = float(current_temp_str)  # Convert to float
         except ValueError:
