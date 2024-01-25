@@ -89,11 +89,7 @@ class PWMFanControl:
 
     def update_gui(self):
         temp_str = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
-        try:
-            temp = float(temp_str)
-        except ValueError:
-            logging.warning(f"Failed to convert temperature: {temp_str}")
-            temp = 0.0  # Set a default value in case of conversion failure
+        temp = self.parse_temperature(temp_str)
 
         freq = subprocess.getoutput("vcgencmd measure_clock arm | awk -F '=' '{print $2}'")
 
@@ -109,6 +105,13 @@ class PWMFanControl:
         self.update_fan_status()
 
         self.master.after(1000, self.update_gui)
+
+    def parse_temperature(self, temp_str):
+        try:
+            return float(temp_str)
+        except ValueError:
+            logging.warning(f"Failed to convert temperature: {temp_str}")
+            return 0.0
 
     def toggle_theme(self, event=None):
         if self.theme_var.get() == "Dark":
@@ -148,11 +151,7 @@ class PWMFanControl:
     def update_fan_status(self):
         current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
         current_temp_str = current_temp_str.replace('°', '')  # Remove '°' symbol
-        try:
-            current_temp = float(current_temp_str)  # Convert to float
-        except ValueError:
-            logging.warning(f"Failed to convert temperature: {current_temp_str}")
-            return
+        current_temp = self.parse_temperature(current_temp_str)
 
         threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
         threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
