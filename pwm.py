@@ -141,7 +141,8 @@ class PWMFanControl:
 
     def update_fan_status(self):
         current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
-        current_temp_str = current_temp_str.replace('°', '')  # Remove '°' symbol
+        current_temp_str = current_temp_str.replace('°', '').replace('C', '')  # Remove '°' symbol and 'C' unit
+
         try:
             current_temp = float(current_temp_str)  # Convert to float
         except ValueError:
