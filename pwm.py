@@ -73,6 +73,28 @@ class PWMFanControl:
         self.auto_start_check = tk.Checkbutton(self.master, text="Auto Start on Boot", variable=self.auto_start_var)
         self.auto_start_check.grid(row=7, column=0, columnspan=2, padx=10, pady=10)
 
+        # Preset fan speeds GUI
+        self.preset_frame = ttk.LabelFrame(self.master, text="Preset Fan Speeds")
+        self.preset_frame.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="we")
+
+        preset_labels = ["Low", "Medium", "High"]
+        preset_speeds = [25, 50, 75]
+
+        self.preset_vars = []
+        self.preset_entries = []
+
+        for i, label in enumerate(preset_labels):
+            var = tk.StringVar(value=str(preset_speeds[i]))
+            entry_label = ttk.Label(self.preset_frame, text=f"{label} Speed:")
+            entry_label.grid(row=i, column=0, padx=5, pady=5, sticky="w")
+            entry = ttk.Entry(self.preset_frame, textvariable=var)
+            entry.grid(row=i, column=1, padx=5, pady=5, sticky="e")
+            self.preset_vars.append(var)
+            self.preset_entries.append(entry)
+
+        self.save_presets_button = ttk.Button(self.preset_frame, text="Save Presets", command=self.save_presets)
+        self.save_presets_button.grid(row=len(preset_labels), column=0, columnspan=2, pady=10)
+
         self.quit_button = tk.Button(self.master, text="Quit", command=self.cleanup)
         self.quit_button.grid(row=9, column=0, columnspan=2, pady=10)
 
@@ -152,20 +174,31 @@ class PWMFanControl:
         threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
         threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
 
+        for i, preset_var in enumerate(self.preset_vars):
+            if current_temp >= threshold_temp * (i + 1):
+                # If the temperature is above the threshold for the current preset, set the fan speed to the preset speed
+                preset_speed = float(preset_var.get())
+                self.fan_pwm.ChangeDutyCycle(preset_speed)
+                self.fan_status.set(f"Preset {i + 1}")
+                return
+
         if self.pwm_scale.get() > 0:
             # If the fan speed slider is manually set, use the manual setting
             self.fan_pwm.ChangeDutyCycle(self.pwm_scale.get())
         elif current_temp >= threshold_temp:
             # If the temperature crosses the threshold, set the fan to the threshold speed
             self.fan_pwm.ChangeDutyCycle(threshold_speed)
+            self.fan_status.set("Threshold")
         else:
             # If the temperature is below the threshold, turn off the fan
             self.fan_pwm.ChangeDutyCycle(0)
-
-        if self.fan_pwm.get_duty_cycle() > 0:
-            self.fan_status.set("ON")
-        else:
             self.fan_status.set("OFF")
+
+    def save_presets(self):
+        for i, preset_var in enumerate(self.preset_vars):
+            self.config.set('Settings', f'PresetSpeed{i + 1}', preset_var.get())
+        self.save_settings()
+        logging.info("Preset fan speeds saved.")
 
 def main():
     root = tk.Tk()
