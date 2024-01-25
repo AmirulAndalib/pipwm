@@ -1,4 +1,4 @@
-from gpiozero import PWMOutputDevice, Device
+import RPi.GPIO as GPIO
 import tkinter as tk
 from tkinter import ttk
 import subprocess
@@ -12,8 +12,8 @@ class PWMFanControl:
         self.master = master
         master.title("PWM Fan Control")
 
-        # Force gpiozero to use the default pin factory
-        Device.pin_factory = None
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
 
         self.config = configparser.ConfigParser()
         self.load_settings()  # Load settings from pwm.config
@@ -24,7 +24,10 @@ class PWMFanControl:
         self.fan_pin_entry = tk.Entry(self.master, textvariable=self.fan_pin_var)
         self.fan_pin_entry.grid(row=0, column=1, padx=10, pady=10)
 
-        self.fan = PWMOutputDevice(self.config.getint('Settings', 'FanPin'))
+        self.fan_pwm_pin = self.config.getint('Settings', 'FanPin')
+        GPIO.setup(self.fan_pwm_pin, GPIO.OUT)
+        self.fan_pwm = GPIO.PWM(self.fan_pwm_pin, 100)
+        self.fan_pwm.start(0)
         self.fan_status = tk.StringVar(value="OFF")
 
         self.theme_var = tk.StringVar(value="Light")
@@ -79,7 +82,7 @@ class PWMFanControl:
 
     def update_pwm(self, duty_cycle):
         duty_cycle = float(duty_cycle)
-        self.fan.value = duty_cycle / 100.0
+        self.fan_pwm.ChangeDutyCycle(duty_cycle)
         self.config.set('Settings', 'FanSpeed', str(duty_cycle))
         self.save_settings()  # Save settings to pwm.config
         logging.info(f"Fan speed set to {duty_cycle}%")
@@ -126,34 +129,36 @@ class PWMFanControl:
             self.config.write(configfile)
 
     def cleanup(self):
-        self.fan.value = 0
+        self.fan_pwm.stop()
+        GPIO.cleanup()
         self.master.destroy()
 
     def shutdown(self):
         # This function will be called during system shutdown
-        self.fan.value = 0
+        self.fan_pwm.stop()
+        GPIO.cleanup()
         logging.info("Fan turned off during system shutdown")
 
-def update_fan_status(self):
-    current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
-    current_temp = float(current_temp_str[:-1])  # Remove '°C' and convert to float
-    threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
-    threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
+    def update_fan_status(self):
+        current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
+        current_temp = float(current_temp_str[:-1])  # Remove '°C' and convert to float
+        threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
+        threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
 
-    if self.pwm_scale.get() > 0:
-        # If the fan speed slider is manually set, use the manual setting
-        self.fan.value = self.pwm_scale.get() / 100.0
-    elif current_temp >= threshold_temp:
-        # If the temperature crosses the threshold, set the fan to the threshold speed
-        self.fan.value = threshold_speed / 100.0
-    else:
-        # If the temperature is below the threshold, turn off the fan
-        self.fan.value = 0.0
+        if self.pwm_scale.get() > 0:
+            # If the fan speed slider is manually set, use the manual setting
+            self.fan_pwm.ChangeDutyCycle(self.pwm_scale.get())
+        elif current_temp >= threshold_temp:
+            # If the temperature crosses the threshold, set the fan to the threshold speed
+            self.fan_pwm.ChangeDutyCycle(threshold_speed)
+        else:
+            # If the temperature is below the threshold, turn off the fan
+            self.fan_pwm.ChangeDutyCycle(0)
 
-    if self.fan.value > 0:
-        self.fan_status.set("ON")
-    else:
-        self.fan_status.set("OFF")
+        if self.fan_pwm.get_duty_cycle() > 0:
+            self.fan_status.set("ON")
+        else:
+            self.fan_status.set("OFF")
 
 def main():
     root = tk.Tk()
