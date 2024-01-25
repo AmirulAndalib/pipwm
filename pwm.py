@@ -73,30 +73,37 @@ class PWMFanControl:
         self.auto_start_check = tk.Checkbutton(self.master, text="Auto Start on Boot", variable=self.auto_start_var)
         self.auto_start_check.grid(row=7, column=0, columnspan=2, padx=10, pady=10)
 
-        # New: Auto Fan Speeds
-        self.auto_speed1_label = tk.Label(self.master, text="Auto Speed 1:")
-        self.auto_speed1_label.grid(row=8, column=0, padx=10, pady=10)
-        self.auto_speed1_entry = tk.Entry(self.master)
-        self.auto_speed1_entry.grid(row=8, column=1, padx=10, pady=10)
+        # Auto mode settings
+        self.auto_settings_frame = ttk.LabelFrame(self.master, text="Auto Mode Settings")
+        self.auto_settings_frame.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky='w')
 
-        self.auto_temp1_label = tk.Label(self.master, text="Auto Temp 1:")
-        self.auto_temp1_label.grid(row=9, column=0, padx=10, pady=10)
-        self.auto_temp1_entry = tk.Entry(self.master)
-        self.auto_temp1_entry.grid(row=9, column=1, padx=10, pady=10)
+        self.auto_temp1_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoTemp1')))
+        self.auto_speed1_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoSpeed1')))
+        self.auto_temp2_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoTemp2')))
+        self.auto_speed2_var = tk.StringVar(value=str(self.config.getint('Settings', 'AutoSpeed2')))
 
-        self.auto_speed2_label = tk.Label(self.master, text="Auto Speed 2:")
-        self.auto_speed2_label.grid(row=10, column=0, padx=10, pady=10)
-        self.auto_speed2_entry = tk.Entry(self.master)
-        self.auto_speed2_entry.grid(row=10, column=1, padx=10, pady=10)
+        self.auto_temp1_label = tk.Label(self.auto_settings_frame, text="Auto Temp 1:")
+        self.auto_temp1_label.grid(row=0, column=0, padx=10, pady=5)
+        self.auto_temp1_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_temp1_var)
+        self.auto_temp1_entry.grid(row=0, column=1, padx=10, pady=5)
 
-        self.auto_temp2_label = tk.Label(self.master, text="Auto Temp 2:")
-        self.auto_temp2_label.grid(row=11, column=0, padx=10, pady=10)
-        self.auto_temp2_entry = tk.Entry(self.master)
-        self.auto_temp2_entry.grid(row=11, column=1, padx=10, pady=10)
-        # End New
+        self.auto_speed1_label = tk.Label(self.auto_settings_frame, text="Auto Speed 1:")
+        self.auto_speed1_label.grid(row=0, column=2, padx=10, pady=5)
+        self.auto_speed1_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_speed1_var)
+        self.auto_speed1_entry.grid(row=0, column=3, padx=10, pady=5)
+
+        self.auto_temp2_label = tk.Label(self.auto_settings_frame, text="Auto Temp 2:")
+        self.auto_temp2_label.grid(row=1, column=0, padx=10, pady=5)
+        self.auto_temp2_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_temp2_var)
+        self.auto_temp2_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        self.auto_speed2_label = tk.Label(self.auto_settings_frame, text="Auto Speed 2:")
+        self.auto_speed2_label.grid(row=1, column=2, padx=10, pady=5)
+        self.auto_speed2_entry = tk.Entry(self.auto_settings_frame, textvariable=self.auto_speed2_var)
+        self.auto_speed2_entry.grid(row=1, column=3, padx=10, pady=5)
 
         self.quit_button = tk.Button(self.master, text="Quit", command=self.cleanup)
-        self.quit_button.grid(row=12, column=0, columnspan=2, pady=10)
+        self.quit_button.grid(row=9, column=0, columnspan=2, pady=10)
 
         self.start_time = time.time()
 
@@ -110,13 +117,7 @@ class PWMFanControl:
         logging.info(f"Fan speed set to {duty_cycle}%")
 
     def update_gui(self):
-        temp_str = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
-        try:
-            temp = float(temp_str)
-        except ValueError:
-            logging.warning(f"Failed to convert temperature: {temp_str}")
-            temp = 0.0
-
+        temp = subprocess.getoutput("vcgencmd measure_temp | sed 's/[^0-9.]//g'")
         freq = subprocess.getoutput("vcgencmd measure_clock arm | awk -F '=' '{print $2}'")
 
         elapsed_time = time.time() - self.start_time
@@ -146,19 +147,27 @@ class PWMFanControl:
     def load_settings(self):
         try:
             self.config.read('pwm.config')
+            # Set default values for auto mode settings if not present in the configuration file
+            if not self.config.has_option('Settings', 'AutoTemp1'):
+                self.config.set('Settings', 'AutoTemp1', '0')
+            if not self.config.has_option('Settings', 'AutoSpeed1'):
+                self.config.set('Settings', 'AutoSpeed1', '0')
+            if not self.config.has_option('Settings', 'AutoTemp2'):
+                self.config.set('Settings', 'AutoTemp2', '0')
+            if not self.config.has_option('Settings', 'AutoSpeed2'):
+                self.config.set('Settings', 'AutoSpeed2', '0')
         except FileNotFoundError:
             # If pwm.config doesn't exist, create it with default settings
             self.config['Settings'] = {'FanSpeed': '0', 'FanPin': '14', 'ThresholdTemp': '40', 'ThresholdSpeed': '50',
-                                       'AutoTemp1': '60', 'AutoSpeed1': '75', 'AutoTemp2': '80', 'AutoSpeed2': '100'}
+                                       'AutoTemp1': '0', 'AutoSpeed1': '0', 'AutoTemp2': '0', 'AutoSpeed2': '0'}
             self.save_settings()
 
     def save_settings(self):
         self.config.set('Settings', 'FanPin', str(self.fan_pin_var.get()))
-        self.config.set('Settings', 'AutoTemp1', str(self.auto_temp1_entry.get()))
-        self.config.set('Settings', 'AutoSpeed1', str(self.auto_speed1_entry.get()))
-        self.config.set('Settings', 'AutoTemp2', str(self.auto_temp2_entry.get()))
-        self.config.set('Settings', 'AutoSpeed2', str(self.auto_speed2_entry.get()))
-
+        self.config.set('Settings', 'AutoTemp1', str(self.auto_temp1_var.get()))
+        self.config.set('Settings', 'AutoSpeed1', str(self.auto_speed1_var.get()))
+        self.config.set('Settings', 'AutoTemp2', str(self.auto_temp2_var.get()))
+        self.config.set('Settings', 'AutoSpeed2', str(self.auto_speed2_var.get()))
         with open('pwm.config', 'w') as configfile:
             self.config.write(configfile)
 
@@ -175,7 +184,7 @@ class PWMFanControl:
 
     def update_fan_status(self):
         current_temp_str = self.temp_label.cget("text").split(":")[1].strip()  # Remove leading/trailing spaces
-        current_temp_str = current_temp_str.replace('°C', '')  # Remove '°C' symbol
+        current_temp_str = current_temp_str.replace('°', '')  # Remove '°' symbol
         try:
             current_temp = float(current_temp_str)  # Convert to float
         except ValueError:
@@ -184,10 +193,6 @@ class PWMFanControl:
 
         threshold_temp = self.config.getint('Settings', 'ThresholdTemp')
         threshold_speed = self.config.getint('Settings', 'ThresholdSpeed')
-        auto_temp1 = float(self.config.get('Settings', 'AutoTemp1'))
-        auto_speed1 = float(self.config.get('Settings', 'AutoSpeed1'))
-        auto_temp2 = float(self.config.get('Settings', 'AutoTemp2'))
-        auto_speed2 = float(self.config.get('Settings', 'AutoSpeed2'))
 
         if self.pwm_scale.get() > 0:
             # If the fan speed slider is manually set, use the manual setting
@@ -195,14 +200,8 @@ class PWMFanControl:
         elif current_temp >= threshold_temp:
             # If the temperature crosses the threshold, set the fan to the threshold speed
             self.fan_pwm.ChangeDutyCycle(threshold_speed)
-        elif current_temp >= auto_temp1:
-            # If the temperature crosses the AutoTemp1 threshold, set the fan to the AutoSpeed1
-            self.fan_pwm.ChangeDutyCycle(auto_speed1)
-        elif current_temp >= auto_temp2:
-            # If the temperature crosses the AutoTemp2 threshold, set the fan to the AutoSpeed2
-            self.fan_pwm.ChangeDutyCycle(auto_speed2)
         else:
-            # If the temperature is below all thresholds, turn off the fan
+            # If the temperature is below the threshold, turn off the fan
             self.fan_pwm.ChangeDutyCycle(0)
 
         if self.fan_pwm.get_duty_cycle() > 0:
