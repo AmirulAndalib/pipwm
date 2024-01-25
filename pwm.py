@@ -166,8 +166,8 @@ class PWMFanControl:
             # If the temperature is below the threshold, turn off the fan
             self.fan_pwm.ChangeDutyCycle(0)
 
-        # Checking if the duty cycle is greater than 0 to determine fan status
-        if self.fan_pwm.ChangeDutyCycle() > 0:
+        # Checking if the fan is running (ChangeDutyCycle is not None)
+        if self.fan_pwm.ChangeDutyCycle:
             self.fan_status.set("ON")
         else:
             self.fan_status.set("OFF")
